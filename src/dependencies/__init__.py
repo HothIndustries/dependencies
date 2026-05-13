@@ -29,5 +29,5 @@ _REPO = "dependencies"
 _REF = "main"
 _PATH = "dependencies"
 
-if __name__ == "__main__":
-    main()
+
+main()
