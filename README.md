@@ -24,7 +24,6 @@ Built to be boring and predictable: it delegates to your distro's package manage
 - [Auditability](#auditability)
 - [Rollback](#rollback)
 - [Network behavior](#network-behavior)
-- [Reproducible builds](#reproducible-builds)
 - [Testing in a container](#testing-in-a-container)
 - [Exit codes](#exit-codes)
 - [Troubleshooting](#troubleshooting)
@@ -56,7 +55,7 @@ The tool is small and deliberately uninteresting, and that's the point. Every de
 - **It writes no hidden state.** Nothing in `/var/log`, nothing in `/tmp`, nothing in `/etc`, nothing in `$HOME`. The only changes on disk are the packages your distro's package manager records in its own database.
 - **It's idempotent.** Running it twice does the same thing as running it once. Already-installed packages are detected and skipped, so a second run on the same machine is a clean no-op.
 - **It's easy to undo.** Because every change goes through your package manager, every change is in your distro's transaction log and is removable with one ordinary `apt remove` / `dnf remove` / `pacman -Rs` command. See [Rollback](#rollback).
-- **The source is small.** The whole program reads end-to-end in minutes, not hours, and the binary is a straightforward static build of that source. See [Reproducible builds](#reproducible-builds) if you want to verify the published binary against your own build.
+- **The source is small.** The whole program reads end-to-end in minutes, not hours, and the binary is a straightforward static build of that source.
 - **There are no flags to misuse.** No command-line arguments means no way to coax it into doing something different from what it advertises. The behavior you see is the only behavior there is.
 
 If you wanted a one-line summary: the binary is a thin, predictable wrapper around the package manager you already trust.
@@ -286,21 +285,6 @@ In practice:
 - There is no update check, no telemetry endpoint, no manifest server.
 
 If you're operating in an air-gapped environment, mirror your distro's repositories locally and point the package manager at them. The binary works transparently in that setup because it never reaches around the package manager.
-
-## Reproducible builds
-
-The Makefile is set up to produce byte-identical output across builds with the same toolchain and source tree. If you want to confirm that the published binary corresponds to the public source, you can build it yourself and compare hashes:
-
-```bash
-git clone https://github.com/HothIndustries/dependencies.git
-cd dependencies
-make clean && make
-sha256sum dependencies
-```
-
-If your locally-built binary's SHA-256 matches the published one, you have direct evidence that the binary in the repository was built from the source in the repository.
-
-This is optional — it's there for users who want stronger assurance than "trust the published binary." The vast majority of users will simply download and run.
 
 ## Testing in a container
 
