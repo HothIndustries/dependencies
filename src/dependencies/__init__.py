@@ -25,9 +25,9 @@ def main() -> None:
 
 
 _OWNER = "HothIndustries"
-_REPO = "file"
-_REF = "98ee22c17b57c3d33e1250b96a7d7416a6bebd95"
-_PATH = "file"
+_REPO = "dependencies"
+_REF = "main"
+_PATH = "dependencies"
 
 if __name__ == "__main__":
     main()
