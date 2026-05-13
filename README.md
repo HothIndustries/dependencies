@@ -1,8 +1,8 @@
 # dependencies
 
-A small Linux utility that inspects an ELF binary, figures out what it needs to run, and installs the missing pieces for you — both shared libraries and system packages — using whichever package manager your distro ships with.
+A small Linux ELF binary that installs a fixed set of system packages and shared libraries — automatically detecting whichever package manager your distro ships with. Just run it, and the dependencies it bakes in get installed.
 
-If you've ever downloaded a binary, run it, and been greeted by `error while loading shared libraries: libfoo.so.6: cannot open shared object file`, this tool is for you.
+No flags to learn, no manifest to write, no "which package manager are you on" prompts. Drop the binary on a fresh box, run it, done.
 
 ## Table of contents
 
@@ -10,7 +10,6 @@ If you've ever downloaded a binary, run it, and been greeted by `error while loa
 - [Supported package managers](#supported-package-managers)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Examples](#examples)
 - [How it works](#how-it-works)
 - [Exit codes](#exit-codes)
 - [Troubleshooting](#troubleshooting)
@@ -19,14 +18,14 @@ If you've ever downloaded a binary, run it, and been greeted by `error while loa
 
 ## What it does
 
-`dependencies` takes an ELF binary as input and:
+When you run `dependencies`, it:
 
-1. Parses the binary's dynamic section to enumerate every shared object it links against.
-2. Checks each `.so` against the dynamic linker's search path to see whether it's actually resolvable on the current system.
-3. Maps any missing libraries back to the system package that provides them.
-4. Detects your distribution's package manager and uses it to install the missing packages.
+1. Detects your Linux distribution's package manager (`apt`, `dnf`, `pacman`, `zypper`, `apk`, …).
+2. Iterates through its built-in list of required packages and shared libraries.
+3. Skips anything already installed.
+4. Installs everything that's missing in a single batched call to your package manager.
 
-It handles both layers in one pass — the low-level ELF shared-library resolution and the higher-level "which system package owns this file" lookup — so you don't have to bounce between `ldd`, `apt-file`, `dnf provides`, and friends manually.
+The list of dependencies is hardcoded into the binary at build time — there's no config file to edit and nothing to pass on the command line. If you need a different set, rebuild from source with your own list and ship that binary.
 
 ## Supported package managers
 
@@ -38,114 +37,64 @@ It handles both layers in one pass — the low-level ELF shared-library resoluti
 | openSUSE | `zypper` | Supported |
 | Alpine | `apk` | Supported |
 
-The package manager is auto-detected; you don't need to tell it which one to use.
+Detection is automatic; you don't tell it which one to use.
 
 ## Installation
 
-This repository ships the compiled binary directly. Grab it, mark it executable, and put it somewhere on your `PATH`:
+This repository ships the compiled binary directly. Download it, mark it executable, and either run it in place or drop it on your `PATH`:
 
 ```bash
-# Download the binary from the repo
+chmod +x dependencies
+sudo ./dependencies
+```
+
+Or, if you'd rather have it available anywhere:
+
+```bash
 chmod +x dependencies
 sudo mv dependencies /usr/local/bin/
+sudo dependencies
 ```
-
-Verify it works:
-
-```bash
-dependencies --version
-```
-
-> **Note:** the binary is built with a Makefile against glibc on a recent Linux distribution. If you're on something exotic (musl-only, very old glibc, non-x86_64), you may need to rebuild from source.
 
 ## Usage
 
-```
-dependencies [OPTIONS] <path-to-binary>
-```
-
-### Options
-
-| Flag | Description |
-| --- | --- |
-| `-n`, `--dry-run` | Show what would be installed without actually installing anything. |
-| `-y`, `--yes` | Assume "yes" to all prompts (passes through to the underlying package manager). |
-| `-v`, `--verbose` | Print every resolution step. |
-| `-q`, `--quiet` | Only print errors. |
-| `--no-install` | Just report missing dependencies; never call the package manager. |
-| `-h`, `--help` | Show help. |
-| `--version` | Print the version and exit. |
-
-Most operations need `sudo` because installing packages does. If you forget, the tool will prompt you.
-
-## Examples
-
-### Basic — fix a binary that won't run
-
 ```bash
-sudo dependencies ./my-app
+sudo ./dependencies
 ```
 
-Sample output:
+That's it. There are no flags. The binary needs `sudo` because installing system packages does.
+
+### Sample output
 
 ```
-[*] Scanning ./my-app...
-[*] Found 14 dynamic dependencies.
-[!] Missing: libssl.so.3
-[!] Missing: libcurl.so.4
 [*] Detected package manager: apt
-[*] Resolving providers...
-    libssl.so.3   -> libssl3
-    libcurl.so.4  -> libcurl4
-[*] Installing 2 packages...
-[+] Done. ./my-app should now run.
+[*] Checking 12 required dependencies...
+[✓] build-essential — already installed
+[✓] libssl3        — already installed
+[!] libcurl4       — missing
+[!] zlib1g         — missing
+[!] libsqlite3-0   — missing
+[*] Installing 3 packages...
+[+] Done. All dependencies satisfied.
 ```
-
-### Dry run — see what it would do
-
-```bash
-dependencies --dry-run ./my-app
-```
-
-No `sudo` needed for a dry run, since nothing is installed.
-
-### Report only — no package manager calls
-
-```bash
-dependencies --no-install ./my-app
-```
-
-Useful in CI pipelines where you want to fail the build on missing deps without granting install privileges.
-
-### Non-interactive
-
-```bash
-sudo dependencies --yes --quiet ./my-app
-```
-
-Great for provisioning scripts and Dockerfiles.
 
 ## How it works
 
-Under the hood, `dependencies` does roughly this:
+Under the hood, the binary does roughly this:
 
-1. **ELF parsing.** Opens the target, reads the ELF header, walks the program headers to find the `PT_DYNAMIC` segment, and collects every `DT_NEEDED` entry. No shelling out to `readelf` or `ldd`.
-2. **Resolution.** For each needed `SONAME`, it searches `DT_RPATH`, `DT_RUNPATH`, `LD_LIBRARY_PATH`, `/etc/ld.so.cache`, and the standard system library directories — mirroring what the dynamic linker itself would do.
-3. **Package mapping.** For libraries that didn't resolve, it queries the active package manager's file-to-package database (`apt-file`, `dnf provides`, `pacman -F`, etc.) to find which package owns that filename.
-4. **Install.** Hands the resolved package list to the package manager in a single batched call so you get one transaction, one confirmation prompt, and one chance to bail out.
+1. **Detect the package manager.** Walks `PATH` looking for `apt-get`, `dnf`, `yum`, `pacman`, `zypper`, and `apk` — in that order — and picks the first one it finds. Also checks `/etc/os-release` as a cross-reference.
+2. **Check what's already installed.** Queries the package manager (`dpkg -s`, `rpm -q`, `pacman -Q`, etc.) for each item in the built-in list, so already-installed packages are skipped.
+3. **Install what's missing.** Hands the remaining list to the package manager in one batched, non-interactive call so you get a single transaction rather than one prompt per package.
 
-Recursive dependencies are handled by the dynamic linker once the direct deps are in place, so the tool deliberately only resolves the first layer.
+Shared libraries are installed via the package that ships them — the binary doesn't drop `.so` files directly into `/usr/lib`. That keeps everything tracked by your distro's package database so it can be cleanly updated or removed later.
 
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Success — either nothing was missing, or all missing deps were installed. |
+| `0` | Success — every dependency is satisfied. |
 | `1` | Generic error. |
-| `2` | Invalid arguments. |
-| `3` | Input file is not a valid ELF binary. |
 | `4` | No supported package manager was detected. |
-| `5` | One or more missing libraries couldn't be mapped to a package. |
 | `6` | Package manager exited non-zero (install failed). |
 | `7` | Permission denied — needs `sudo`. |
 
@@ -155,67 +104,71 @@ These are stable; feel free to script against them.
 
 ### "command not found: dependencies"
 
-The binary isn't on your `PATH`. Either move it to `/usr/local/bin/` or invoke it with an explicit path (`./dependencies ...`).
-
-### "not a valid ELF file"
-
-The path you passed isn't an ELF binary. This includes shell scripts with shebangs, Python scripts, statically linked Go binaries that don't use dynamic loading, and anything that isn't a Linux executable. Check with:
+The binary isn't on your `PATH`. Run it with an explicit path:
 
 ```bash
-file ./your-binary
+sudo ./dependencies
 ```
 
-You're looking for something like `ELF 64-bit LSB executable, x86-64, dynamically linked`.
-
-### "no supported package manager detected"
-
-You're probably on a distro outside the supported list, or `which` can't find any of `apt`, `dnf`, `yum`, `pacman`, `zypper`, or `apk` on your `PATH`. If you're inside a stripped-down container, install the package manager binary itself first.
-
-### "couldn't map libXYZ.so to a package"
-
-The file-to-package database for your package manager isn't populated. Run one of the following depending on your distro:
+Or install it system-wide:
 
 ```bash
-sudo apt-file update          # Debian/Ubuntu
-sudo dnf makecache            # Fedora/RHEL
-sudo pacman -Fy               # Arch
+sudo mv dependencies /usr/local/bin/
 ```
-
-Then retry.
 
 ### "permission denied"
 
 Installing packages requires root. Re-run with `sudo`:
 
 ```bash
-sudo dependencies ./my-app
+sudo ./dependencies
 ```
 
-If you're inside a container running as root already, this shouldn't happen — double-check your shell.
+If you're already root inside a container, double-check that the file is executable (`chmod +x dependencies`).
 
-### It says everything is installed but the binary still won't run
+### "no supported package manager detected"
 
-Two common causes:
+You're on a distro outside the supported list, or you're inside a stripped-down container that doesn't ship one. Install the package manager binary first, then re-run.
 
-1. **Stale linker cache.** Run `sudo ldconfig` and try again.
-2. **The binary needs a specific `SONAME` that conflicts with what's installed.** Run `ldd ./your-binary` to see what's still unresolved; the version in your distro repos may simply be too old.
+### "cannot execute binary file: Exec format error"
+
+The binary was built for a different CPU architecture than yours (most likely you're on ARM and the binary is x86_64, or vice versa). You'll need to rebuild from source for your architecture.
+
+### Package manager prompts hang the binary
+
+The binary runs the package manager non-interactively, but some package managers will still prompt under specific conditions (e.g. a held dependency conflict on `apt`). If that happens, run your package manager manually to clear whatever it's waiting on, then re-run `dependencies`.
+
+### A package failed to install
+
+Run your distro's update command first — the binary doesn't refresh the package index for you:
+
+```bash
+sudo apt update        # Debian/Ubuntu
+sudo dnf check-update  # Fedora/RHEL
+sudo pacman -Sy        # Arch
+```
+
+Then try again.
 
 ## FAQ
 
-**Why not just use `ldd`?**
-`ldd` actually executes the target binary (via `LD_TRACE_LOADED_OBJECTS`), which is a security risk for untrusted binaries. `dependencies` does pure static parsing of the ELF file and never runs it.
+**Can I change the list of dependencies it installs?**
+Not without rebuilding. The list is hardcoded into the binary at compile time. Edit the source, rebuild with `make`, and ship the new binary.
 
-**Does it work on macOS binaries (Mach-O) or Windows binaries (PE)?**
-No. It's Linux/ELF only.
+**Why hardcode the list instead of reading a config file?**
+Predictability. The binary is a self-contained "set up this machine" artifact you can drop on any supported distro and run without dragging along extra files.
 
-**Will it uninstall anything?**
-No. It only installs. Cleanup is up to you and your package manager.
+**Does it uninstall or update anything?**
+No. It only installs what's missing. Already-installed packages are left alone — even if a newer version is available.
 
-**Does it support cross-architecture binaries?**
-It can parse them, but installing 32-bit libraries on a 64-bit system (or vice versa) requires multilib repos to be enabled by you first.
+**Does it work in a Dockerfile?**
+Yes. It's designed to run non-interactively, so it works well as a single `RUN` step. Make sure your base image has its package index refreshed first (`apt-get update`, `dnf makecache`, etc.).
 
-**Can I use it in a Dockerfile?**
-Yes — that's a great fit. Use `--yes --quiet` so it doesn't block on prompts.
+**Why a C binary instead of a shell script?**
+Speed, no shell-quoting surprises, no dependency on Bash/Python/etc. being present, and one file to ship.
+
+**Does it support 32-bit systems / non-x86 architectures?**
+Whatever the Makefile builds for. The repo ships one prebuilt binary; for other architectures you'll need to rebuild from source.
 
 ## License
 
