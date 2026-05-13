@@ -41,14 +41,77 @@ Detection is automatic; you don't tell it which one to use.
 
 ## Installation
 
-This repository ships the compiled binary directly. Download it, mark it executable, and either run it in place or drop it on your `PATH`:
+This repository ships the compiled binary directly. Pick whichever fetch method fits your environment, then mark it executable and run it.
+
+### Option 1: `git clone`
+
+Best if you want the full repo (source, README, history) alongside the binary:
 
 ```bash
+git clone https://github.com/HothIndustries/dependencies.git
+cd dependencies
 chmod +x dependencies
 sudo ./dependencies
 ```
 
-Or, if you'd rather have it available anywhere:
+For a faster, history-less clone:
+
+```bash
+git clone --depth 1 https://github.com/HothIndustries/dependencies.git
+```
+
+### Option 2: `curl` / `wget` from `raw.githubusercontent.com`
+
+Best for one-liners on a fresh box where you only want the binary itself:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/HothIndustries/dependencies/main/dependencies
+chmod +x dependencies
+sudo ./dependencies
+```
+
+Or with `wget`:
+
+```bash
+wget https://raw.githubusercontent.com/HothIndustries/dependencies/main/dependencies
+chmod +x dependencies
+sudo ./dependencies
+```
+
+To pin to a specific commit instead of `main`, swap `main` for the commit SHA:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/HothIndustries/dependencies/e3e4ad1/dependencies
+```
+
+### Option 3: GitHub REST API
+
+Best when you're scripting against GitHub (e.g. you already have a token in `$GITHUB_TOKEN` and want to stay within the API). The `contents` endpoint can return the raw bytes when you set the `Accept` header:
+
+```bash
+curl -fsSL \
+  -H "Accept: application/vnd.github.raw" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -o dependencies \
+  https://api.github.com/repos/HothIndustries/dependencies/contents/dependencies
+chmod +x dependencies
+sudo ./dependencies
+```
+
+Pin to a ref (branch, tag, or SHA) with the `?ref=` query parameter:
+
+```bash
+curl -fsSL \
+  -H "Accept: application/vnd.github.raw" \
+  -o dependencies \
+  "https://api.github.com/repos/HothIndustries/dependencies/contents/dependencies?ref=e3e4ad1"
+```
+
+The `Authorization` header is optional for public repos but lifts you from the 60/hr unauthenticated rate limit to 5,000/hr.
+
+### Putting it on your `PATH`
+
+However you fetched it, if you'd rather have it available anywhere:
 
 ```bash
 chmod +x dependencies
