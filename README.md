@@ -51,7 +51,7 @@ Best if you want the full repo (source, README, history) alongside the binary:
 git clone https://github.com/HothIndustries/dependencies.git
 cd dependencies
 chmod +x dependencies
-sudo ./dependencies
+./dependencies
 ```
 
 For a faster, history-less clone:
@@ -67,7 +67,7 @@ Best for one-liners on a fresh box where you only want the binary itself:
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/HothIndustries/dependencies/main/dependencies
 chmod +x dependencies
-sudo ./dependencies
+./dependencies
 ```
 
 Or with `wget`:
@@ -75,7 +75,7 @@ Or with `wget`:
 ```bash
 wget https://raw.githubusercontent.com/HothIndustries/dependencies/main/dependencies
 chmod +x dependencies
-sudo ./dependencies
+./dependencies
 ```
 
 To pin to a specific commit instead of `main`, swap `main` for the commit SHA:
@@ -95,7 +95,7 @@ curl -fsSL \
   -o dependencies \
   https://api.github.com/repos/HothIndustries/dependencies/contents/dependencies
 chmod +x dependencies
-sudo ./dependencies
+./dependencies
 ```
 
 Pin to a ref (branch, tag, or SHA) with the `?ref=` query parameter:
@@ -116,16 +116,16 @@ However you fetched it, if you'd rather have it available anywhere:
 ```bash
 chmod +x dependencies
 sudo mv dependencies /usr/local/bin/
-sudo dependencies
+dependencies
 ```
 
 ## Usage
 
 ```bash
-sudo ./dependencies
+./dependencies
 ```
 
-That's it. There are no flags. The binary needs `sudo` because installing system packages does.
+That's it. There are no flags.
 
 ### Sample output
 
@@ -159,7 +159,7 @@ Shared libraries are installed via the package that ships them — the binary do
 | `1` | Generic error. |
 | `4` | No supported package manager was detected. |
 | `6` | Package manager exited non-zero (install failed). |
-| `7` | Permission denied — needs `sudo`. |
+| `7` | Permission denied. |
 
 These are stable; feel free to script against them.
 
@@ -170,7 +170,7 @@ These are stable; feel free to script against them.
 The binary isn't on your `PATH`. Run it with an explicit path:
 
 ```bash
-sudo ./dependencies
+./dependencies
 ```
 
 Or install it system-wide:
@@ -181,13 +181,11 @@ sudo mv dependencies /usr/local/bin/
 
 ### "permission denied"
 
-Installing packages requires root. Re-run with `sudo`:
+Double-check that the file is executable:
 
 ```bash
-sudo ./dependencies
+chmod +x dependencies
 ```
-
-If you're already root inside a container, double-check that the file is executable (`chmod +x dependencies`).
 
 ### "no supported package manager detected"
 
