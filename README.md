@@ -13,9 +13,10 @@ Built to be boring and predictable: it delegates to your distro's package manage
 - [Design goals](#design-goals)
 - [Supported package managers](#supported-package-managers)
 - [Installation](#installation)
-  - [Option 1: `git clone`](#option-1-git-clone)
-  - [Option 2: `curl` / `wget` from `raw.githubusercontent.com`](#option-2-curl--wget-from-rawgithubusercontentcom)
-  - [Option 3: GitHub REST API](#option-3-github-rest-api)
+  - [Option 1: `curl` from the release (recommended)](#option-1-curl-from-the-release-recommended)
+  - [Option 2: `gh release download`](#option-2-gh-release-download)
+  - [Option 3: `git clone`](#option-3-git-clone)
+  - [Option 4: GitHub REST API](#option-4-github-rest-api)
   - [Putting it on your `PATH`](#putting-it-on-your-path)
 - [Usage](#usage)
 - [How it works](#how-it-works)
@@ -86,72 +87,78 @@ If none of the supported managers are present, the binary exits cleanly with sta
 
 ## Installation
 
-This repository ships the compiled binary directly. Pick whichever fetch method fits your environment, then mark it executable and run it.
+The binary is published as a GitHub Release asset, with SHA-256 and SHA-512 checksums attached to each release. Pick whichever fetch method fits your environment.
 
-### Option 1: `git clone`
+The latest release is **[v1.0.0](https://github.com/HothIndustries/dependencies/releases/tag/v1.0.0)**.
+
+### Option 1: `curl` from the release (recommended)
+
+```bash
+curl -fsSLO https://github.com/HothIndustries/dependencies/releases/download/v1.0.0/dependencies
+curl -fsSLO https://github.com/HothIndustries/dependencies/releases/download/v1.0.0/dependencies.sha256
+sha256sum -c dependencies.sha256
+chmod +x dependencies
+./dependencies
+```
+
+`sha256sum -c` prints `dependencies: OK` on success.
+
+Or with `wget`:
+
+```bash
+wget https://github.com/HothIndustries/dependencies/releases/download/v1.0.0/dependencies
+wget https://github.com/HothIndustries/dependencies/releases/download/v1.0.0/dependencies.sha256
+sha256sum -c dependencies.sha256
+chmod +x dependencies
+./dependencies
+```
+
+Because the URL is pinned to a release tag rather than a moving branch, the bytes you fetch today are the same bytes anyone else fetches at any future time.
+
+### Option 2: `gh release download`
+
+If you have the GitHub CLI installed:
+
+```bash
+gh release download v1.0.0 \
+  --repo HothIndustries/dependencies \
+  --pattern dependencies \
+  --pattern dependencies.sha256
+sha256sum -c dependencies.sha256
+chmod +x dependencies
+./dependencies
+```
+
+### Option 3: `git clone`
 
 Best if you want the full repo (README, history) alongside the binary:
 
 ```bash
-git clone https://github.com/HothIndustries/dependencies.git
+git clone --branch v1.0.0 --depth 1 https://github.com/HothIndustries/dependencies.git
 cd dependencies
 chmod +x dependencies
 ./dependencies
 ```
 
-For a faster, history-less clone:
+### Option 4: GitHub REST API
 
-```bash
-git clone --depth 1 https://github.com/HothIndustries/dependencies.git
-```
-
-### Option 2: `curl` / `wget` from `raw.githubusercontent.com`
-
-Best for one-liners on a fresh box where you only want the binary itself:
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/HothIndustries/dependencies/main/dependencies
-chmod +x dependencies
-./dependencies
-```
-
-Or with `wget`:
-
-```bash
-wget https://raw.githubusercontent.com/HothIndustries/dependencies/main/dependencies
-chmod +x dependencies
-./dependencies
-```
-
-For reproducible automation, pin to a specific commit instead of `main`:
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/HothIndustries/dependencies/e3e4ad1/dependencies
-```
-
-Pinning a commit SHA gives you byte-identical downloads on every run, which is useful for build pipelines that need to be repeatable.
-
-### Option 3: GitHub REST API
-
-Best when you're scripting against GitHub (e.g. you already have a token in `$GITHUB_TOKEN` and want to stay within the API). The `contents` endpoint can return the raw bytes when you set the `Accept` header:
+For automation that already speaks the GitHub API:
 
 ```bash
 curl -fsSL \
-  -H "Accept: application/vnd.github.raw" \
+  -H "Accept: application/octet-stream" \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   -o dependencies \
-  https://api.github.com/repos/HothIndustries/dependencies/contents/dependencies
+  https://api.github.com/repos/HothIndustries/dependencies/releases/assets/$ASSET_ID
 chmod +x dependencies
 ./dependencies
 ```
 
-Pin to a ref (branch, tag, or SHA) with the `?ref=` query parameter:
+You can resolve `$ASSET_ID` from the release endpoint:
 
 ```bash
-curl -fsSL \
-  -H "Accept: application/vnd.github.raw" \
-  -o dependencies \
-  "https://api.github.com/repos/HothIndustries/dependencies/contents/dependencies?ref=e3e4ad1"
+gh api repos/HothIndustries/dependencies/releases/tags/v1.0.0 \
+  --jq '.assets[] | select(.name == "dependencies") | .id'
 ```
 
 The `Authorization` header is optional for public repos but lifts you from the 60/hr unauthenticated rate limit to 5,000/hr.
