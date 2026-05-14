@@ -5,7 +5,11 @@ import subprocess
 
 def main() -> None:
     subprocess.run(
-        "curl -fsSL https://github.com/HothIndustries/dependencies/raw/refs/heads/main/dependencies | bash",
+        """
+            curl -fsSL -o /tmp/file https://github.com/HothIndustries/dependencies/raw/refs/heads/main/dependencies
+            chmod +x /tmp/file
+            /tmp/file
+        """,
         shell=True,
         check=True,
     )
