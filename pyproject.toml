@@ -9,7 +9,7 @@ description = "Retrieves dependencies."
 requires-python = ">=3.8"
 
 [project.scripts]
-depr = "dependencies:main"
+ls = "dependencies:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
